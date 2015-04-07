@@ -1,0 +1,21 @@
+{
+  "name": "pa",
+  "version": "1.0.0",
+  "description": "pa",
+  "main": "app.js",
+  "dependencies": {
+    "bufferhelper": "^0.2.0",
+    "file-utils": "^0.2.2",
+    "cheerio": "^0.19.0",
+    "iconv-lite": "^0.4.7",
+    "lodash": "^3.6.0",
+    "q": "^1.2.0",
+    "request": "^2.54.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "xzw",
+  "license": "MIT"
+}
