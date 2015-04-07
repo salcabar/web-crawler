@@ -1,264 +1,168 @@
-    var fs = require('fs');
-    var path = require('path');
-    var request = require('request');
-    var cheerio = require('cheerio');
-    var fileUtil = require('file-utils');
-    var iconv = require('iconv-lite');
-    var BufferHelper = require('bufferhelper');
-    var http = require('http');
-    var Q = require('q')
-    // var url = require('url').parse('http://bbs.jjwxc.net/board.php?board=52&page=0');
+var fs = require('fs'),
+    path = require('path'),
+    cheerio = require('cheerio'),
+    iconv = require('iconv-lite'),
+    BufferHelper = require('bufferhelper'),
+    http = require('http'),
+    Q = require('q');
 
-    // request(requrl, function (error, response, body) {
-    //   if (!error && response.statusCode == 200) {
-    //     acquireData(body)
-    //   }
-    // })
 
-    var startUrl = 'http://bbs.jjwxc.net/board.php?board=52&page=';
+var startUrl = 'http://bbs.jjwxc.net/board.php?board=52&page=',
+    topicUrl = 'http://bbs.jjwxc.net/';
 
-    var pageNum = 1;
+var pageNum = 1;
 
-    var arr = [];
+var arr = [];
 
-    var str = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Document</title></head><body>';
+var beginStr = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>Document</title>\n</head>\n<body>\n<ol style="margin-left:20px">\n';
 
-    var str1 = '</body></html>';
+var endStr = '</ol>\n</body>\n</html>';
 
-    next(startUrl).then(write);
+next(startUrl, 101).then(write).then(getContent);
 
-    // write();
+function getContent() {
 
-    function get(url) {
+    var len = arr.length;
 
-      var deferred = Q.defer();
+    for (var i = 5; i < len; i++) {
 
-      var data = null;
+        (function(i) {
 
-      http.get(url, function(res) {
+            var url = topicUrl + arr[i].src;
 
-          var bufferHelper = new BufferHelper();
+            get(url).then(function(data) {
 
-          res.on('data', function(chunk){
-            
+                return getTopic(data);
+
+            }).then(function(content) {
+
+                writeTopic(content, arr[i].src);
+
+            })
+
+        })(i);
+
+    }
+}
+
+function writeTopic(str, id) {
+
+    fs.writeFile(path.join(__dirname, './content/' + id.match(/.*id=(\d*)/)[1] + '.html'), beginStr + str + endStr, 'UTF-8', function() {
+
+    });
+
+}
+
+function getTopic(data) {
+
+    var $ = cheerio.load(data); //cheerio解析data
+
+    var topic = $.html($('#topic'));
+
+    return topic;
+
+}
+
+function get(url) {
+
+    var deferred = Q.defer();
+
+    var data = null;
+
+    http.get(url, function(res) {
+
+        var bufferHelper = new BufferHelper();
+
+        res.on('data', function(chunk) {
+
             bufferHelper.concat(chunk);
 
-          });
+        });
 
-          res.on('end', function(){
+        res.on('end', function() {
 
-            data = iconv.decode(bufferHelper.toBuffer(),'gb2312');
-            
+            data = iconv.decode(bufferHelper.toBuffer(), 'gb2312');
+
             deferred.resolve(data);
 
-            
-          });
+        });
 
-      }).on('error', function(e) {
+    }).on('error', function(e) {
 
         deferred.reject();
 
-      });
+    });
 
-      return deferred.promise;
-    }
+    return deferred.promise;
+}
 
-    function next(urls) {
+function next(urls, num) {
 
-        var url = urls + pageNum;
+    var url = urls + pageNum;
 
-        console.log(url)
-        return get(url).then(function (data) {
-            console.log(pageNum)
-            if(pageNum == 3) {
-                return null;
-            }
+    return get(url).then(function(data) {
 
-            pageNum++;
+        if (pageNum == num) {
 
-            getData(data);
-
-            return next(startUrl);
-
-        })
-    }
-
-
-    function write() {
-        console.log(arr.length)
-        var str2 = '';
-
-        for(var i = 1 ; i < arr.length ; i++) {
-
-          str2 += arr[i].text + '\n';
+            return null;
 
         }
 
-        // console.log(str2)
-        fs.writeFile(path.join(__dirname, './test.html') , str + str2 + str1 , 'UTF-8' , function () {
+        pageNum++;
 
-        });
+        getData(data);
+
+        return next(startUrl, num);
+
+    })
+}
+
+
+function write() {
+
+    var str = '';
+
+    for (var i = 0; i < arr.length; i++) {
+
+        if (arr[i].src == undefined) {
+
+        } else {
+
+            str += '<li class="' + i + '"><a href="./content/' + arr[i].src.match(/.*id=(\d*)/)[1] + '.html' + '">' + arr[i].text.trim() + '</a></li> \n';
+
+        }
     }
 
-    // function next() {
+    fs.writeFile(path.join(__dirname, './test.html'), beginStr + str + endStr, 'UTF-8', function() {
 
-    //   // hasNext(function (err, flag) {
-    //     // console.log(1)
-    //     // if(!flag) {
-    //     //  write();
-    //     //  return null;
-    //     // }
+    });
+}
 
-    //     var urlStr = url + pageNum;
+function getData(data) {
 
-    //     // console.log(urlStr)
+    var $ = cheerio.load(data); //cheerio解析data
 
-    //     get(urlStr)
+    var content = $('body>table').eq(3);
 
+    var a = content.children();
 
-    //   // })
-    // }
+    a.each(function(i, ele) {
 
-    // function hasNext() {
-    //   // console.log(pageNum)
-    //     if(pageNum === 2){
-    //       console.log(11)
-    //         return false;
-    //     }
+        var obj = {};
 
-    //     return true;
+        var dom = $(this).find('a').first();
 
-    // };
+        obj.src = dom.attr('href');
 
+        if (obj.src == undefined) {
 
-    function getData (data) {
+        } else {
 
-      // data = iconv.decode(bufferHelper.toBuffer(),'gb2312');
+            obj.text = dom.text();
 
-        //data = parseHtml(data);
+            arr.push(obj);
+        }
 
-        // console.log(data)
+    })
 
-        var $ = cheerio.load(data);  //cheerio解析data
-     
-        var content = $('body>table').eq(3);
-
-        var a = content.children();
-
-        a.each(function (i , ele) {
-
-          var obj = {};
-
-          var dom = $(this).find('a').first();
-
-          obj.src = dom.attr('href');
-
-          obj.text = dom.text();
-
-          arr.push(obj);
-
-        })
-
-      // pageNum++;
-
-    }
-
-
-    // function getUrl () {
-
-    //  var pageNum = 0;
-
-    //  var url = 'http://bbs.jjwxc.net/board.php?board=52&page=';
-
-    //  var queryUrl = url + pageNum; 
-
-    //  http.get(queryUrl, function(res){
-
-    //      var bufferHelper = new BufferHelper();
-
-    //      var data = null;
-
-    //      res.on('data', function (chunk) {
-
-    //        bufferHelper.concat(chunk);
-
-    //      });
-
-    //      res.on('end',function(){ 
-
-    //        // console.log(iconv.decode(bufferHelper.toBuffer(),'gb2312'));
-
-    //        data = iconv.decode(bufferHelper.toBuffer(),'gb2312');
-
-    //        //data = parseHtml(data);
-
-    //        // console.log(data)
-
-    //        var $ = cheerio.load(data);  //cheerio解析data
-         
-    //        var content = $('body>table').eq(3);
-
-    //        var a = content.children();
-
-    //        var arr = [];
-
-    //        a.each(function (i , ele) {
-
-    //          console.log($(this))
-
-    //          arr[i] = {};
-
-    //          var dom = $(this).find('a').first();
-
-    //          arr[i].src = dom.attr('href');
-
-    //          arr[i].text = dom.text();
-    //        })
-
-    //        console.log(arr[0])
-
-    //        var str2 = '';
-
-    //        for(var i = 1 ; i < arr.length ; i++) {
-
-    //          str2 += arr[i].text + '\n';
-
-    //        }
-
-            
-    //        fs.writeFile(path.join(__dirname, './test.html') , str + str2 + str1 , 'UTF-8' , function () {
-
-    //        });
-
-    //    });
-    //  })
-    // }
-
-
-
-
-
-    // function parseHtml (str) {
-    //  console.log(str.match(/每日/))
-    //  console.log(str.match(/&#x([a-f][0-9])[^;];/))
-
-    //  // str.replace(/&#x([a-f][0-9])[^;];/, function (m, $1) {
-    //  //  console.log($1)
-    //  //  return String.fromCharCode(parseInt($1 , 16));
-    //  // })
-    // }
-
-    // function acquireData(data) {
-    //  var bufferHelper = new BufferHelper();
-    //  var data = iconv.decode(bufferHelper.concat(data).toBuffer(), 'gb2312');
-    //  console.log(data)
-    //     var $ = cheerio.load(data);  //cheerio解析data
-     
-    //     var content = $('body>table').eq(3);
-
-    //     var a = content.children();
-        
-    //     console.log(a.length)
-
-    //     fileUtil.write(path.join(__dirname, './test.html') , str + a + str1);
-    // }
+}

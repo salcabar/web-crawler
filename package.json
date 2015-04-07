@@ -1,6 +1,6 @@
 {
   "name": "pa",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "pa",
   "main": "app.js",
   "dependencies": {
@@ -17,5 +17,13 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "xzw",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/salcabar/web-crawler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/salcabar/web-crawler/issues"
+  },
+  "homepage": "https://github.com/salcabar/web-crawler"
 }
